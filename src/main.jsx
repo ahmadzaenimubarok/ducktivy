@@ -29,6 +29,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [rescheduleId, setRescheduleId] = useState("");
+  const [snoozeId, setSnoozeId] = useState("");
   const [rescheduleForm, setRescheduleForm] = useState({
     date: today,
     time: nearestTime()
@@ -129,6 +130,7 @@ function App() {
     try {
       await apiPatchJson(`/api/reminders/${id}/snooze`, { minutes }, accessToken);
       setMessage(`Reminder snoozed for ${minutes} minutes.`);
+      setSnoozeId("");
       await loadDashboard();
     } catch (error) {
       setMessage(error.message);
@@ -149,6 +151,7 @@ function App() {
 
   function openReschedule(reminder) {
     const date = new Date(reminder.remind_at);
+    setSnoozeId("");
     setRescheduleId(reminder.id);
     setRescheduleForm({
       date: localDateInputValue(date),
@@ -317,13 +320,32 @@ function App() {
                         <button className="muted" type="button" onClick={() => markReminder(reminder.id, "skip")}>
                           Skip
                         </button>
-                        <button className="muted" type="button" onClick={() => snoozeReminder(reminder.id, 10)}>
-                          +10m
-                        </button>
-                        <button className="muted" type="button" onClick={() => snoozeReminder(reminder.id, 30)}>
-                          +30m
-                        </button>
-                        <button className="muted" type="button" onClick={() => openReschedule(reminder)}>
+                        <div className="menu-wrap">
+                          <button
+                            className="muted"
+                            type="button"
+                            onClick={() => {
+                              setRescheduleId("");
+                              setSnoozeId((current) => (current === reminder.id ? "" : reminder.id));
+                            }}
+                          >
+                            Snooze
+                          </button>
+                          {snoozeId === reminder.id ? (
+                            <div className="snooze-menu">
+                              <button type="button" onClick={() => snoozeReminder(reminder.id, 10)}>
+                                10m
+                              </button>
+                              <button type="button" onClick={() => snoozeReminder(reminder.id, 30)}>
+                                30m
+                              </button>
+                              <button type="button" onClick={() => snoozeReminder(reminder.id, 60)}>
+                                1h
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                        <button className="muted reschedule-button" type="button" onClick={() => openReschedule(reminder)}>
                           Reschedule
                         </button>
                       </div>

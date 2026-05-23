@@ -290,7 +290,7 @@ label {
 
 .reminder-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
   border: 1px solid #e0e6ea;
@@ -329,7 +329,7 @@ label {
 .reminder-side {
   display: grid;
   justify-items: end;
-  gap: 12px;
+  gap: 10px;
   color: #53636f;
   font-size: 0.86rem;
   font-weight: 700;
@@ -337,9 +337,45 @@ label {
 
 .actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   justify-content: end;
+  align-items: center;
+  position: relative;
+  white-space: nowrap;
+}
+
+.actions button {
+  padding: 0 12px;
+}
+
+.menu-wrap {
+  position: relative;
+}
+
+.snooze-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 6px;
+  border: 1px solid #d9e0e5;
+  border-radius: 8px;
+  padding: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(19, 29, 35, 0.12);
+}
+
+.snooze-menu button {
+  min-height: 32px;
+  color: #203039;
+  background: #e8edf0;
+}
+
+.reschedule-button {
+  min-width: 104px;
 }
 
 .pill {
@@ -405,6 +441,7 @@ label {
 
   .actions {
     justify-content: start;
+    flex-wrap: wrap;
   }
 
   .reschedule-form {
