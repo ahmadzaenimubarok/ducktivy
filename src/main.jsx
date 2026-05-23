@@ -22,7 +22,9 @@ function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("active");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   const [reminders, setReminders] = useState([]);
   const [summary, setSummary] = useState(emptySummary());
   const [defaults, setDefaults] = useState({ channelId: "" });
@@ -79,7 +81,7 @@ function App() {
     if (session) {
       loadDashboard();
     }
-  }, [filter, session?.access_token]);
+  }, [filter, page, session?.access_token]);
 
   useEffect(() => {
     if (defaults.channelId && !form.channelId) {
@@ -92,8 +94,9 @@ function App() {
 
     setLoading(true);
     try {
-      const data = await apiGet(`/api/overview?filter=${filter}`, accessToken);
+      const data = await apiGet(`/api/overview?filter=${filter}&page=${page}`, accessToken);
       setReminders(data.reminders ?? []);
+      setPagination(data.pagination ?? { page, pageSize: 10, total: 0, totalPages: 1 });
       setSummary(data.summary ?? emptySummary());
       setDefaults(data.defaults ?? { channelId: "" });
       setUser(data.user ?? null);
@@ -293,7 +296,7 @@ function App() {
         <section className="panel list-panel">
           <div className="panel-head">
             <h2>Reminders</h2>
-            <FilterTabs value={filter} onChange={setFilter} />
+            <FilterTabs value={filter} onChange={changeFilter} />
           </div>
 
           {loading ? (
@@ -375,6 +378,14 @@ function App() {
               ))}
             </div>
           )}
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            pageSize={pagination.pageSize}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
+          />
         </section>
       </section>
     </main>
@@ -386,6 +397,13 @@ function App() {
 
   function setRescheduleValue(key, value) {
     setRescheduleForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function changeFilter(nextFilter) {
+    setFilter(nextFilter);
+    setPage(1);
+    setSnoozeId("");
+    setRescheduleId("");
   }
 }
 
@@ -414,6 +432,30 @@ function FilterTabs({ value, onChange }) {
           {label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function Pagination({ page, totalPages, total, pageSize, onPrev, onNext }) {
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(total, page * pageSize);
+
+  return (
+    <div className="pagination">
+      <span>
+        {start}-{end} of {total}
+      </span>
+      <div>
+        <button className="muted" type="button" onClick={onPrev} disabled={page <= 1}>
+          Prev
+        </button>
+        <strong>
+          {page} / {totalPages}
+        </strong>
+        <button className="muted" type="button" onClick={onNext} disabled={page >= totalPages}>
+          Next
+        </button>
+      </div>
     </div>
   );
 }

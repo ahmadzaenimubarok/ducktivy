@@ -32,6 +32,11 @@ button:hover {
   background: #10544e;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 input {
   width: 100%;
   min-height: 40px;
@@ -273,6 +278,27 @@ label {
   background: #176a63;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: #53636f;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.pagination div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination button {
+  min-height: 34px;
+}
+
 .empty {
   min-height: 180px;
   display: grid;
@@ -434,9 +460,14 @@ label {
 
   .reminder-side,
   .tabs,
-  .account {
+  .account,
+  .pagination {
     justify-items: start;
     justify-content: start;
+  }
+
+  .pagination {
+    display: grid;
   }
 
   .actions {

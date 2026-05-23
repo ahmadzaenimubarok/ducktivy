@@ -110,10 +110,15 @@ async function handleOverview(request, response, url) {
   const user = await requireDashboardUser(request, response);
   if (!user) return;
 
-  const filter = url.searchParams.get("filter") || "all";
+  const filter = url.searchParams.get("filter") || "active";
+  const pageSize = 10;
+  const requestedPage = Number(url.searchParams.get("page") || 1);
+  const page = Number.isFinite(requestedPage) ? Math.max(1, requestedPage) : 1;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
   let query = supabase
     .from("reminders")
-    .select("id, discord_user_id, discord_channel_id, task, remind_at, duration_minutes, status, strict_mode, sent_at, completed_at, skipped_at, created_at")
+    .select("id, discord_user_id, discord_channel_id, task, remind_at, duration_minutes, status, strict_mode, sent_at, completed_at, skipped_at, created_at", { count: "exact" })
     .eq("discord_user_id", user.discordUserId)
     .order("remind_at", { ascending: true });
 
@@ -128,7 +133,7 @@ async function handleOverview(request, response, url) {
     }
   }
 
-  const { data, error } = await query.limit(100);
+  const { data, error, count } = await query.range(from, to);
   if (error) {
     send(response, 500, { error: error.message });
     return;
@@ -138,6 +143,12 @@ async function handleOverview(request, response, url) {
   send(response, 200, {
     reminders: data,
     summary: buildSummary(allToday),
+    pagination: {
+      page,
+      pageSize,
+      total: count || 0,
+      totalPages: Math.max(1, Math.ceil((count || 0) / pageSize))
+    },
     user,
     defaults: {
       channelId: process.env.DISCORD_TEST_CHANNEL_ID || ""
