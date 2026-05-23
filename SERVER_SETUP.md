@@ -72,6 +72,8 @@ DISCORD_GUILD_ID=YOUR_DISCORD_SERVER_ID
 REMINDER_WORKER_POLL_MS=30000
 DASHBOARD_API_PORT=8787
 DASHBOARD_ORIGIN=https://DOMAIN_KAMU
+APP_TIME_ZONE=Asia/Jakarta
+APP_TIME_ZONE_OFFSET_MINUTES=420
 ```
 
 Catatan penting:
@@ -80,6 +82,7 @@ Catatan penting:
 - `SUPABASE_SERVICE_ROLE_KEY` hanya boleh dipakai di server.
 - `VITE_DASHBOARD_API_URL` harus mengarah ke domain dashboard, contoh `https://bot.domain.com`.
 - Isi `DISCORD_GUILD_ID` saat testing agar slash command cepat muncul.
+- `APP_TIME_ZONE_OFFSET_MINUTES=420` berarti UTC+7 atau WIB. Ini mencegah gap 7 jam saat VPS memakai timezone UTC.
 
 ## 5. Setup Database Supabase
 
@@ -197,9 +200,9 @@ Isi contoh config:
 ```nginx
 server {
     listen 80;
-    server_name DOMAIN_KAMU;
+    server_name jawakoentji.my.id;
 
-    root /home/USER/ducktivy/dist;
+    root /var/www/html/ducktivy/dist;
     index index.html;
 
     location /api/ {
@@ -241,7 +244,7 @@ sudo apt install -y certbot python3-certbot-nginx
 Generate SSL:
 
 ```bash
-sudo certbot --nginx -d DOMAIN_KAMU
+sudo certbot --nginx -d jawakoentji.my.id
 ```
 
 Setelah SSL aktif, update `.env`:
@@ -280,13 +283,13 @@ pm2 status
 Cek API:
 
 ```bash
-curl https://DOMAIN_KAMU/api/overview
+curl https://jawakoentji.my.id/api/overview
 ```
 
 Cek dashboard:
 
 ```txt
-https://DOMAIN_KAMU
+https://jawakoentji.my.id
 ```
 
 Cek Discord:
@@ -345,4 +348,3 @@ Cek juga:
 - `SUPABASE_URL` benar.
 - `SUPABASE_SERVICE_ROLE_KEY` benar.
 - Nginx proxy `/api/` mengarah ke port `8787`.
-

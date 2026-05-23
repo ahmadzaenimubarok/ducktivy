@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import nacl from "https://esm.sh/tweetnacl@1.0.3";
+import { appDayRange, formatAppTime, parseAppDateTimeToIso } from "../_shared/dateTime.js";
 import { doneMessage, skippedMessage } from "../_shared/reminderMessages.js";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -70,7 +71,9 @@ async function handleCommand(interaction: any) {
   if (subcommand.name === "add") {
     if (!supabase) return interactionResponse("Supabase env belum diset untuk Edge Function.");
 
-    const remindAt = new Date(`${options.date}T${options.time}:00`).toISOString();
+    const remindAt = parseAppDateTimeToIso(options.date, options.time);
+    if (!remindAt) return interactionResponse("Format tanggal atau jam belum valid. Contoh: date `2026-05-23`, time `21:00`.");
+
     const { data, error } = await supabase
       .from("reminders")
       .insert({
@@ -110,10 +113,7 @@ async function handleCommand(interaction: any) {
     if (!data?.length) return interactionResponse("Pending reminders: none");
 
     const lines = data.map((reminder: any, index: number) => {
-      const time = new Date(reminder.remind_at).toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
+      const time = formatAppTime(reminder.remind_at);
       return `${index + 1}. ${reminder.task} - ${time} (${reminder.status}) [${reminder.id}]`;
     });
 
@@ -131,11 +131,13 @@ async function handleCommand(interaction: any) {
   if (subcommand.name === "summary") {
     if (!supabase) return interactionResponse("Supabase env belum diset untuk Edge Function.");
 
+    const { start, end } = appDayRange();
     const { data, error } = await supabase
       .from("reminders")
       .select("status")
       .eq("discord_user_id", userId)
-      .gte("created_at", new Date().toISOString().slice(0, 10));
+      .gte("created_at", start.toISOString())
+      .lt("created_at", end.toISOString());
 
     if (error) return interactionResponse(`Failed to load summary: ${error.message}`);
 

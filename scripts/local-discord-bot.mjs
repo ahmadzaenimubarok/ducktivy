@@ -9,6 +9,11 @@ import {
 } from "discord.js";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
+import {
+  appDayRange,
+  formatAppDateTime,
+  parseAppDateTime
+} from "../supabase/functions/_shared/dateTime.js";
 
 function loadDotEnv(path = ".env") {
   if (!existsSync(path)) return;
@@ -218,18 +223,11 @@ function reminderSelectRows(reminders) {
 }
 
 function parseReminderDateTime(date, time) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  if (!/^\d{2}:\d{2}$/.test(time)) return null;
-
-  const parsed = new Date(`${date}T${time}:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return parseAppDateTime(date, time);
 }
 
 function formatTime(value) {
-  return new Date(value).toLocaleString("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short"
-  });
+  return formatAppDateTime(value);
 }
 
 async function handleListReminders(interaction) {
@@ -501,11 +499,5 @@ async function handleSummary(interaction) {
 }
 
 function todayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-
-  return { start, end };
+  return appDayRange();
 }

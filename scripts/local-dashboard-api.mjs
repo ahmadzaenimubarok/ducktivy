@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
+import { appDayRange, parseAppDateTime } from "../supabase/functions/_shared/dateTime.js";
 
 function loadDotEnv(path = ".env") {
   if (!existsSync(path)) return;
@@ -117,14 +118,14 @@ async function handleOverview(response, url) {
 
 async function handleCreateReminder(request, response) {
   const body = await readJson(request);
-  const remindAt = new Date(`${body.date}T${body.time}:00`);
+  const remindAt = parseAppDateTime(body.date, body.time);
 
   if (!body.task || !body.date || !body.time) {
     send(response, 400, { error: "Task, date, and time are required" });
     return;
   }
 
-  if (Number.isNaN(remindAt.getTime())) {
+  if (!remindAt) {
     send(response, 400, { error: "Invalid reminder date or time" });
     return;
   }
@@ -216,13 +217,7 @@ function buildSummary(reminders) {
 }
 
 function todayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-
-  return { start, end };
+  return appDayRange();
 }
 
 function readJson(request) {

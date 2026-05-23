@@ -1,3 +1,5 @@
+import { formatAppTime, parseAppDateTimeToIso } from "./dateTime.js";
+
 export function parseLocalCommand(argv) {
   const [command = "demo", ...tokens] = argv;
   const flags = {};
@@ -18,13 +20,13 @@ export function parseReminderTime(date, time, now = new Date()) {
   if (!time) throw new Error("time is required");
 
   const day = date || now.toISOString().slice(0, 10);
-  const remindAt = new Date(`${day}T${time}:00`);
+  const remindAt = parseAppDateTimeToIso(day, time);
 
-  if (Number.isNaN(remindAt.getTime())) {
+  if (!remindAt) {
     throw new Error("invalid date or time");
   }
 
-  return remindAt.toISOString();
+  return remindAt;
 }
 
 export async function runReminderCommand(input, store, now = new Date()) {
@@ -56,10 +58,7 @@ export async function runReminderCommand(input, store, now = new Date()) {
       return [
         "Pending reminders:",
         ...reminders.map((reminder, index) => {
-          const time = new Date(reminder.remind_at).toLocaleTimeString("en-GB", {
-            hour: "2-digit",
-            minute: "2-digit"
-          });
+          const time = formatAppTime(reminder.remind_at);
           return `${index + 1}. ${reminder.task} - ${time} (${reminder.status}) [${reminder.id}]`;
         })
       ].join("\n");
