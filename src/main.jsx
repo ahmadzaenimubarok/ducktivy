@@ -129,6 +129,27 @@ function App() {
     }
   }
 
+  async function deleteReminder(id) {
+    const confirmed = window.confirm("Delete this reminder?");
+    if (!confirmed) return;
+
+    try {
+      await apiDelete(`/api/reminders/${id}`, accessToken);
+      setMessage("Reminder deleted.");
+      setSnoozeId("");
+      setRescheduleId("");
+
+      if (reminders.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+
+      await loadDashboard();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
   async function snoozeReminder(id, minutes) {
     try {
       await apiPatchJson(`/api/reminders/${id}/snooze`, { minutes }, accessToken);
@@ -307,6 +328,15 @@ function App() {
             <div className="reminder-list">
               {reminders.map((reminder) => (
                 <article className="reminder-item" key={reminder.id}>
+                  <button
+                    className="delete-button"
+                    type="button"
+                    aria-label="Delete reminder"
+                    title="Delete reminder"
+                    onClick={() => deleteReminder(reminder.id)}
+                  >
+                    ×
+                  </button>
                   <div className="reminder-main">
                     <span className={`pill ${reminder.status}`}>{reminder.status}</span>
                     <h3>{reminder.task}</h3>
@@ -489,6 +519,14 @@ async function apiPatchJson(path, body, token) {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify(body)
+  });
+  return parseResponse(response);
+}
+
+async function apiDelete(path, token) {
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "DELETE",
+    headers: authHeaders(token)
   });
   return parseResponse(response);
 }

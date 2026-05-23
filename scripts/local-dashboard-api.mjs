@@ -89,6 +89,12 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    const deleteMatch = url.pathname.match(/^\/api\/reminders\/([^/]+)$/);
+    if (request.method === "DELETE" && deleteMatch) {
+      await handleDeleteReminder(request, response, deleteMatch[1]);
+      return;
+    }
+
     send(response, 404, { error: "Not found" });
   } catch (error) {
     send(response, 500, { error: error.message });
@@ -315,6 +321,26 @@ async function updateReminderSchedule({ id, userId, remindAt, action, message })
   return { data, error: null };
 }
 
+async function handleDeleteReminder(request, response, id) {
+  const user = await requireDashboardUser(request, response);
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from("reminders")
+    .delete()
+    .eq("id", id)
+    .eq("discord_user_id", user.discordUserId)
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    send(response, 404, { error: "Reminder not found." });
+    return;
+  }
+
+  send(response, 200, { id: data.id });
+}
+
 async function loadTodayReminders(discordUserId) {
   const { start, end } = todayRange();
   const { data, error } = await supabase
@@ -425,7 +451,7 @@ function readJson(request) {
 function send(response, status, body = null) {
   response.writeHead(status, {
     "Access-Control-Allow-Origin": process.env.DASHBOARD_ORIGIN || "http://localhost:5173",
-    "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Content-Type": "application/json"
   });
