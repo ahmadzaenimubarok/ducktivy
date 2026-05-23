@@ -56,8 +56,13 @@ const server = createServer(async (request, response) => {
 
     const url = new URL(request.url, `http://${request.headers.host}`);
 
+    if (request.method === "GET" && url.pathname === "/api/me") {
+      await handleMe(request, response);
+      return;
+    }
+
     if (request.method === "GET" && url.pathname === "/api/overview") {
-      await handleOverview(response, url);
+      await handleOverview(request, response, url);
       return;
     }
 
@@ -68,7 +73,7 @@ const server = createServer(async (request, response) => {
 
     const statusMatch = url.pathname.match(/^\/api\/reminders\/([^/]+)\/(done|skip)$/);
     if (request.method === "PATCH" && statusMatch) {
-      await handleMarkReminder(response, statusMatch[1], statusMatch[2]);
+      await handleMarkReminder(request, response, statusMatch[1], statusMatch[2]);
       return;
     }
 
@@ -82,11 +87,22 @@ server.listen(port, () => {
   console.log(`Dashboard API ready at http://localhost:${port}`);
 });
 
-async function handleOverview(response, url) {
+async function handleMe(request, response) {
+  const user = await requireDashboardUser(request, response);
+  if (!user) return;
+
+  send(response, 200, { user });
+}
+
+async function handleOverview(request, response, url) {
+  const user = await requireDashboardUser(request, response);
+  if (!user) return;
+
   const filter = url.searchParams.get("filter") || "all";
   let query = supabase
     .from("reminders")
     .select("id, discord_user_id, discord_channel_id, task, remind_at, duration_minutes, status, strict_mode, sent_at, completed_at, skipped_at, created_at")
+    .eq("discord_user_id", user.discordUserId)
     .order("remind_at", { ascending: true });
 
   if (filter !== "all") {
@@ -106,10 +122,11 @@ async function handleOverview(response, url) {
     return;
   }
 
-  const allToday = await loadTodayReminders();
+  const allToday = await loadTodayReminders(user.discordUserId);
   send(response, 200, {
     reminders: data,
     summary: buildSummary(allToday),
+    user,
     defaults: {
       channelId: process.env.DISCORD_TEST_CHANNEL_ID || ""
     }
@@ -117,6 +134,9 @@ async function handleOverview(response, url) {
 }
 
 async function handleCreateReminder(request, response) {
+  const user = await requireDashboardUser(request, response);
+  if (!user) return;
+
   const body = await readJson(request);
   const remindAt = parseAppDateTime(body.date, body.time);
 
@@ -133,7 +153,7 @@ async function handleCreateReminder(request, response) {
   const { data, error } = await supabase
     .from("reminders")
     .insert({
-      discord_user_id: body.discordUserId || "dashboard-user",
+      discord_user_id: user.discordUserId,
       discord_channel_id: body.channelId || process.env.DISCORD_TEST_CHANNEL_ID,
       task: body.task,
       remind_at: remindAt.toISOString(),
@@ -157,7 +177,10 @@ async function handleCreateReminder(request, response) {
   send(response, 201, { id: data.id });
 }
 
-async function handleMarkReminder(response, id, action) {
+async function handleMarkReminder(request, response, id, action) {
+  const user = await requireDashboardUser(request, response);
+  if (!user) return;
+
   const status = action === "done" ? "done" : "skipped";
   const timestampField = status === "done" ? "completed_at" : "skipped_at";
 
@@ -168,6 +191,7 @@ async function handleMarkReminder(response, id, action) {
       [timestampField]: new Date().toISOString()
     })
     .eq("id", id)
+    .eq("discord_user_id", user.discordUserId)
     .in("status", ["pending", "sent"])
     .select("id")
     .single();
@@ -186,11 +210,12 @@ async function handleMarkReminder(response, id, action) {
   send(response, 200, { id: data.id, status });
 }
 
-async function loadTodayReminders() {
+async function loadTodayReminders(discordUserId) {
   const { start, end } = todayRange();
   const { data, error } = await supabase
     .from("reminders")
     .select("status")
+    .eq("discord_user_id", discordUserId)
     .gte("created_at", start.toISOString())
     .lt("created_at", end.toISOString());
 
@@ -220,6 +245,61 @@ function todayRange() {
   return appDayRange();
 }
 
+async function requireDashboardUser(request, response) {
+  const token = bearerToken(request);
+
+  if (!token) {
+    send(response, 401, { error: "Login with Discord first." });
+    return null;
+  }
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) {
+    send(response, 401, { error: "Invalid or expired session." });
+    return null;
+  }
+
+  const discordUserId = extractDiscordUserId(data.user);
+  if (!discordUserId) {
+    send(response, 403, { error: "Discord identity was not found on this Supabase user." });
+    return null;
+  }
+
+  return {
+    id: data.user.id,
+    discordUserId,
+    username:
+      data.user.user_metadata?.full_name ||
+      data.user.user_metadata?.name ||
+      data.user.user_metadata?.preferred_username ||
+      data.user.user_metadata?.user_name ||
+      "Discord user",
+    avatarUrl: data.user.user_metadata?.avatar_url || null
+  };
+}
+
+function bearerToken(request) {
+  const header = request.headers.authorization || "";
+  const [scheme, token] = header.split(" ");
+  return scheme?.toLowerCase() === "bearer" ? token : null;
+}
+
+function extractDiscordUserId(user) {
+  const discordIdentity = user.identities?.find((identity) => identity.provider === "discord");
+  const identityData = discordIdentity?.identity_data || {};
+
+  return (
+    user.user_metadata?.provider_id ||
+    user.user_metadata?.sub ||
+    user.user_metadata?.discord_id ||
+    identityData.provider_id ||
+    identityData.sub ||
+    identityData.id ||
+    discordIdentity?.id ||
+    null
+  );
+}
+
 function readJson(request) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -241,7 +321,7 @@ function send(response, status, body = null) {
   response.writeHead(status, {
     "Access-Control-Allow-Origin": process.env.DASHBOARD_ORIGIN || "http://localhost:5173",
     "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Content-Type": "application/json"
   });
   response.end(body ? JSON.stringify(body) : "");

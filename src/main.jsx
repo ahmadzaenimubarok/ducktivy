@@ -1,32 +1,80 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { createClient } from "@supabase/supabase-js";
 import "./styles.css";
 
 const apiBase = import.meta.env.VITE_DASHBOARD_API_URL || "http://localhost:8787";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase =
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true
+        }
+      })
+    : null;
 
 function App() {
   const today = localDateInputValue();
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const [filter, setFilter] = useState("all");
   const [reminders, setReminders] = useState([]);
   const [summary, setSummary] = useState(emptySummary());
   const [defaults, setDefaults] = useState({ channelId: "" });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({
     task: "",
     date: today,
     time: nearestTime(),
     channelId: "",
-    discordUserId: "dashboard-user",
     duration: "",
     strictMode: true
   });
 
   const activeCount = useMemo(() => summary.pending + summary.sent, [summary]);
+  const accessToken = session?.access_token || "";
 
   useEffect(() => {
-    loadDashboard();
-  }, [filter]);
+    if (!supabase) {
+      setAuthLoading(false);
+      setMessage("Supabase auth env belum diset.");
+      return undefined;
+    }
+
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      if (!nextSession) {
+        setUser(null);
+        setReminders([]);
+        setSummary(emptySummary());
+      }
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      loadDashboard();
+    }
+  }, [filter, session?.access_token]);
 
   useEffect(() => {
     if (defaults.channelId && !form.channelId) {
@@ -35,12 +83,15 @@ function App() {
   }, [defaults.channelId]);
 
   async function loadDashboard() {
+    if (!accessToken) return;
+
     setLoading(true);
     try {
-      const data = await apiGet(`/api/overview?filter=${filter}`);
+      const data = await apiGet(`/api/overview?filter=${filter}`, accessToken);
       setReminders(data.reminders ?? []);
       setSummary(data.summary ?? emptySummary());
       setDefaults(data.defaults ?? { channelId: "" });
+      setUser(data.user ?? null);
       setMessage("");
     } catch (error) {
       setMessage(error.message);
@@ -52,7 +103,7 @@ function App() {
   async function createReminder(event) {
     event.preventDefault();
     try {
-      await apiPost("/api/reminders", form);
+      await apiPost("/api/reminders", form, accessToken);
       setMessage("Reminder created.");
       setForm((current) => ({ ...current, task: "", duration: "" }));
       await loadDashboard();
@@ -63,11 +114,53 @@ function App() {
 
   async function markReminder(id, action) {
     try {
-      await apiPatch(`/api/reminders/${id}/${action}`);
+      await apiPatch(`/api/reminders/${id}/${action}`, accessToken);
       await loadDashboard();
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  async function loginWithDiscord() {
+    if (!supabase) {
+      setMessage("Supabase auth env belum diset.");
+      return;
+    }
+
+    await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+  }
+
+  async function logout() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+  }
+
+  if (authLoading) {
+    return (
+      <main className="shell">
+        <div className="empty auth-empty">Loading session...</div>
+      </main>
+    );
+  }
+
+  if (!session) {
+    return (
+      <main className="shell auth-shell">
+        <section className="auth-panel">
+          <p className="eyebrow">Personal Dashboard</p>
+          <h1>Discord Productivity Automation Bot</h1>
+          <button className="primary login-button" type="button" onClick={loginWithDiscord}>
+            Login with Discord
+          </button>
+          {message ? <p className="status">{message}</p> : null}
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -77,9 +170,19 @@ function App() {
           <p className="eyebrow">MVP Dashboard</p>
           <h1>Discord Productivity Automation Bot</h1>
         </div>
-        <button className="ghost" type="button" onClick={loadDashboard}>
-          Refresh
-        </button>
+        <div className="account">
+          {user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : null}
+          <div>
+            <strong>{user?.username || "Discord user"}</strong>
+            <span>{user?.discordUserId || "Loading..."}</span>
+          </div>
+          <button className="ghost" type="button" onClick={loadDashboard}>
+            Refresh
+          </button>
+          <button className="muted" type="button" onClick={logout}>
+            Logout
+          </button>
+        </div>
       </header>
 
       <section className="metrics" aria-label="Daily summary">
@@ -131,14 +234,6 @@ function App() {
                 value={form.channelId}
                 onChange={(event) => setFormValue("channelId", event.target.value)}
                 placeholder="Channel target reminder"
-                required
-              />
-            </label>
-            <label>
-              Discord User ID
-              <input
-                value={form.discordUserId}
-                onChange={(event) => setFormValue("discordUserId", event.target.value)}
                 required
               />
             </label>
@@ -243,23 +338,32 @@ function FilterTabs({ value, onChange }) {
   );
 }
 
-async function apiGet(path) {
-  const response = await fetch(`${apiBase}${path}`);
+async function apiGet(path, token) {
+  const response = await fetch(`${apiBase}${path}`, {
+    headers: authHeaders(token)
+  });
   return parseResponse(response);
 }
 
-async function apiPost(path, body) {
+async function apiPost(path, body, token) {
   const response = await fetch(`${apiBase}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify(body)
   });
   return parseResponse(response);
 }
 
-async function apiPatch(path) {
-  const response = await fetch(`${apiBase}${path}`, { method: "PATCH" });
+async function apiPatch(path, token) {
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "PATCH",
+    headers: authHeaders(token)
+  });
   return parseResponse(response);
+}
+
+function authHeaders(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 async function parseResponse(response) {

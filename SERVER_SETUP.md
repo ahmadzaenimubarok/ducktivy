@@ -99,7 +99,42 @@ File ini membuat tabel:
 
 Karena aplikasi server memakai `SUPABASE_SERVICE_ROLE_KEY`, Row Level Security yang aktif tetap bisa dilewati dari proses server.
 
-## 6. Register Discord Slash Commands
+## 6. Setup Supabase Auth Discord
+
+Dashboard memakai Supabase Auth dengan Discord provider agar data reminder bersifat personal.
+
+Di Discord Developer Portal:
+
+1. Buka application yang sama dengan bot.
+2. Masuk ke OAuth2.
+3. Tambahkan redirect URL Supabase:
+
+```txt
+https://PROJECT_ID.supabase.co/auth/v1/callback
+```
+
+Di Supabase Dashboard:
+
+1. Buka Authentication > Providers.
+2. Enable Discord.
+3. Isi Discord Client ID dan Client Secret.
+4. Buka Authentication > URL Configuration.
+5. Set Site URL ke domain dashboard:
+
+```txt
+https://DOMAIN_KAMU
+```
+
+6. Tambahkan Redirect URLs:
+
+```txt
+https://DOMAIN_KAMU
+http://localhost:5173
+```
+
+Dashboard API akan membaca user dari token Supabase, lalu memakai Discord user ID dari identity Discord. Karena itu semua data dashboard otomatis difilter untuk user yang sedang login.
+
+## 7. Register Discord Slash Commands
 
 Pastikan `.env` sudah berisi:
 
@@ -117,7 +152,7 @@ npm run discord:register
 
 Jika `DISCORD_GUILD_ID` diisi, command biasanya muncul cepat di server Discord. Jika tidak diisi, command global bisa butuh waktu lebih lama.
 
-## 7. Test Bot dan Worker Manual
+## 8. Test Bot dan Worker Manual
 
 Test bot Discord:
 
@@ -139,7 +174,7 @@ npm run worker:dev
 
 Kalau dua proses ini berjalan, hentikan dulu dengan `Ctrl+C`, lalu lanjut setup process manager.
 
-## 8. Jalankan dengan PM2
+## 9. Jalankan dengan PM2
 
 Install PM2:
 
@@ -173,7 +208,7 @@ pm2 startup
 
 PM2 akan menampilkan satu command `sudo ...`. Copy dan jalankan command tersebut.
 
-## 9. Build Dashboard
+## 10. Build Dashboard
 
 Pastikan `VITE_DASHBOARD_API_URL` di `.env` sudah memakai domain public.
 
@@ -187,7 +222,7 @@ Hasil build ada di:
 dist/
 ```
 
-## 10. Setup Nginx
+## 11. Setup Nginx
 
 Buat config Nginx:
 
@@ -200,7 +235,7 @@ Isi contoh config:
 ```nginx
 server {
     listen 80;
-    server_name jawakoentji.my.id;
+    server_name domain.com;
 
     root /var/www/html/ducktivy/dist;
     index index.html;
@@ -233,7 +268,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## 11. Setup HTTPS
+## 12. Setup HTTPS
 
 Install Certbot:
 
@@ -244,7 +279,7 @@ sudo apt install -y certbot python3-certbot-nginx
 Generate SSL:
 
 ```bash
-sudo certbot --nginx -d jawakoentji.my.id
+sudo certbot --nginx -d domain.com
 ```
 
 Setelah SSL aktif, update `.env`:
@@ -272,7 +307,7 @@ Restart API:
 pm2 restart ducktivy-api
 ```
 
-## 12. Verifikasi Akhir
+## 13. Verifikasi Akhir
 
 Cek proses:
 
@@ -283,13 +318,13 @@ pm2 status
 Cek API:
 
 ```bash
-curl https://jawakoentji.my.id/api/overview
+curl https://domain.com/api/overview
 ```
 
 Cek dashboard:
 
 ```txt
-https://jawakoentji.my.id
+https://domain.com
 ```
 
 Cek Discord:
@@ -300,7 +335,7 @@ Cek Discord:
 /remind list
 ```
 
-## 13. Update Aplikasi
+## 14. Update Aplikasi
 
 Saat ada perubahan baru dari Git:
 

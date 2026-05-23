@@ -62,6 +62,40 @@ p {
   margin-bottom: 18px;
 }
 
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: end;
+}
+
+.account img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.account div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: right;
+}
+
+.account strong,
+.account span {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account span {
+  color: #65737d;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .eyebrow {
   margin-bottom: 8px;
   color: #66737d;
@@ -86,6 +120,10 @@ h2 {
 .muted {
   color: #203039;
   background: #e8edf0;
+}
+
+.primary {
+  background: #176a63;
 }
 
 .ghost:hover,
@@ -186,6 +224,33 @@ label {
   margin: 14px 0 0;
   color: #40515d;
   font-size: 0.9rem;
+}
+
+.auth-shell {
+  min-height: calc(100vh - 56px);
+  display: grid;
+  place-items: center;
+}
+
+.auth-panel {
+  width: min(520px, 100%);
+  border: 1px solid #d9e0e5;
+  border-radius: 8px;
+  padding: 28px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(19, 29, 35, 0.04);
+}
+
+.auth-panel h1 {
+  margin-bottom: 24px;
+}
+
+.login-button {
+  width: 100%;
+}
+
+.auth-empty {
+  margin-top: 80px;
 }
 
 .tabs {
@@ -320,8 +385,21 @@ label {
   }
 
   .reminder-side,
-  .tabs {
+  .tabs,
+  .account {
     justify-items: start;
     justify-content: start;
+  }
+
+  .account {
+    grid-template-columns: auto 1fr;
+  }
+
+  .account div {
+    text-align: left;
+  }
+
+  .account button {
+    width: 100%;
   }
 }
