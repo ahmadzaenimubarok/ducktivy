@@ -77,6 +77,18 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    const snoozeMatch = url.pathname.match(/^\/api\/reminders\/([^/]+)\/snooze$/);
+    if (request.method === "PATCH" && snoozeMatch) {
+      await handleSnoozeReminder(request, response, snoozeMatch[1]);
+      return;
+    }
+
+    const rescheduleMatch = url.pathname.match(/^\/api\/reminders\/([^/]+)\/reschedule$/);
+    if (request.method === "PATCH" && rescheduleMatch) {
+      await handleRescheduleReminder(request, response, rescheduleMatch[1]);
+      return;
+    }
+
     send(response, 404, { error: "Not found" });
   } catch (error) {
     send(response, 500, { error: error.message });
@@ -208,6 +220,88 @@ async function handleMarkReminder(request, response, id, action) {
   });
 
   send(response, 200, { id: data.id, status });
+}
+
+async function handleSnoozeReminder(request, response, id) {
+  const user = await requireDashboardUser(request, response);
+  if (!user) return;
+
+  const body = await readJson(request);
+  const minutes = Number(body.minutes || 10);
+
+  if (![10, 30, 60].includes(minutes)) {
+    send(response, 400, { error: "Snooze minutes must be 10, 30, or 60." });
+    return;
+  }
+
+  const remindAt = new Date(Date.now() + minutes * 60_000);
+  const { data, error } = await updateReminderSchedule({
+    id,
+    userId: user.discordUserId,
+    remindAt,
+    action: "snoozed",
+    message: `Snoozed from dashboard for ${minutes} minutes`
+  });
+
+  if (error || !data) {
+    send(response, 404, { error: "Reminder not found or already closed" });
+    return;
+  }
+
+  send(response, 200, { id: data.id, remindAt: data.remind_at, status: data.status });
+}
+
+async function handleRescheduleReminder(request, response, id) {
+  const user = await requireDashboardUser(request, response);
+  if (!user) return;
+
+  const body = await readJson(request);
+  const remindAt = parseAppDateTime(body.date, body.time);
+
+  if (!body.date || !body.time || !remindAt) {
+    send(response, 400, { error: "Valid date and time are required." });
+    return;
+  }
+
+  const { data, error } = await updateReminderSchedule({
+    id,
+    userId: user.discordUserId,
+    remindAt,
+    action: "rescheduled",
+    message: `Rescheduled from dashboard to ${remindAt.toISOString()}`
+  });
+
+  if (error || !data) {
+    send(response, 404, { error: "Reminder not found or already closed" });
+    return;
+  }
+
+  send(response, 200, { id: data.id, remindAt: data.remind_at, status: data.status });
+}
+
+async function updateReminderSchedule({ id, userId, remindAt, action, message }) {
+  const { data, error } = await supabase
+    .from("reminders")
+    .update({
+      remind_at: remindAt.toISOString(),
+      status: "pending",
+      sent_at: null
+    })
+    .eq("id", id)
+    .eq("discord_user_id", userId)
+    .in("status", ["pending", "sent"])
+    .select("id, remind_at, status")
+    .single();
+
+  if (error || !data) return { data, error };
+
+  await supabase.from("reminder_logs").insert({
+    reminder_id: data.id,
+    action,
+    message
+  });
+
+  return { data, error: null };
 }
 
 async function loadTodayReminders(discordUserId) {

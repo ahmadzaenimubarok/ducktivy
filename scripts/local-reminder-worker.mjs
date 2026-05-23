@@ -120,6 +120,18 @@ async function sendReminder(reminder) {
               style: 2,
               label: "Skip",
               custom_id: `reminder:skip:${reminder.id}`
+            },
+            {
+              type: 2,
+              style: 2,
+              label: "+10m",
+              custom_id: `reminder:snooze10:${reminder.id}`
+            },
+            {
+              type: 2,
+              style: 2,
+              label: "+30m",
+              custom_id: `reminder:snooze30:${reminder.id}`
             }
           ]
         }

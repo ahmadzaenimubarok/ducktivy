@@ -48,6 +48,20 @@ async function handleButton(interaction: any) {
     return interactionResponse(skippedMessage());
   }
 
+  if (action === "reminder_snooze10" || action === "reminder_snooze30") {
+    const minutes = action === "reminder_snooze10" ? 10 : 30;
+    const updated = await updateReminderSchedule({
+      id: reminderId,
+      userId: interaction.member?.user?.id ?? interaction.user?.id,
+      remindAt: new Date(Date.now() + minutes * 60_000),
+      action: "snoozed",
+      message: `Snoozed from Discord button for ${minutes} minutes`
+    });
+
+    if (!updated) return interactionResponse("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    return interactionResponse(`Reminder ditunda ${minutes} menit.\nJadwal baru: ${formatAppTime(updated.remind_at)}`);
+  }
+
   return interactionResponse("Unknown reminder action.");
 }
 
@@ -128,6 +142,42 @@ async function handleCommand(interaction: any) {
     return interactionResponse(status === "done" ? doneMessage() : skippedMessage());
   }
 
+  if (subcommand.name === "snooze") {
+    if (!supabase) return interactionResponse("Supabase env belum diset untuk Edge Function.");
+
+    const minutes = Number(options.minutes);
+    if (![10, 30, 60].includes(minutes)) return interactionResponse("Pilihan snooze belum valid.");
+
+    const updated = await updateReminderSchedule({
+      id: String(options.id),
+      userId,
+      remindAt: new Date(Date.now() + minutes * 60_000),
+      action: "snoozed",
+      message: `Snoozed from Discord command for ${minutes} minutes`
+    });
+
+    if (!updated) return interactionResponse("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    return interactionResponse(`Reminder ditunda ${minutes} menit.\nJadwal baru: ${formatAppTime(updated.remind_at)}`);
+  }
+
+  if (subcommand.name === "reschedule") {
+    if (!supabase) return interactionResponse("Supabase env belum diset untuk Edge Function.");
+
+    const remindAt = parseAppDateTimeToIso(options.date, options.time);
+    if (!remindAt) return interactionResponse("Format tanggal atau jam belum valid. Contoh: date `2026-05-24`, time `21:00`.");
+
+    const updated = await updateReminderSchedule({
+      id: String(options.id),
+      userId,
+      remindAt: new Date(remindAt),
+      action: "rescheduled",
+      message: `Rescheduled from Discord command to ${remindAt}`
+    });
+
+    if (!updated) return interactionResponse("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    return interactionResponse(`Reminder dijadwalkan ulang.\nJadwal baru: ${formatAppTime(updated.remind_at)}`);
+  }
+
   if (subcommand.name === "summary") {
     if (!supabase) return interactionResponse("Supabase env belum diset untuk Edge Function.");
 
@@ -170,6 +220,45 @@ async function markReminder(id: string, status: "done" | "skipped", userId?: str
     action: status === "done" ? "done" : "skipped",
     message: `Marked ${status} from Discord`
   });
+}
+
+async function updateReminderSchedule({
+  id,
+  userId,
+  remindAt,
+  action,
+  message
+}: {
+  id: string;
+  userId?: string;
+  remindAt: Date;
+  action: "snoozed" | "rescheduled";
+  message: string;
+}) {
+  if (!supabase) throw new Error("Supabase client is not configured");
+
+  let query = supabase
+    .from("reminders")
+    .update({
+      remind_at: remindAt.toISOString(),
+      status: "pending",
+      sent_at: null
+    })
+    .eq("id", id)
+    .in("status", ["pending", "sent"]);
+
+  if (userId) query = query.eq("discord_user_id", userId);
+
+  const { data, error } = await query.select("id, remind_at, status").single();
+  if (error || !data) return null;
+
+  await supabase.from("reminder_logs").insert({
+    reminder_id: data.id,
+    action,
+    message
+  });
+
+  return data;
 }
 
 function interactionResponse(content: string) {

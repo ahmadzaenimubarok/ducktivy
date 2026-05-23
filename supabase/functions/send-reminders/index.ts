@@ -54,7 +54,9 @@ Deno.serve(async () => {
               type: 1,
               components: [
                 { type: 2, style: 3, label: "Done", custom_id: `reminder_done:${reminder.id}` },
-                { type: 2, style: 2, label: "Skip", custom_id: `reminder_skip:${reminder.id}` }
+                { type: 2, style: 2, label: "Skip", custom_id: `reminder_skip:${reminder.id}` },
+                { type: 2, style: 2, label: "+10m", custom_id: `reminder_snooze10:${reminder.id}` },
+                { type: 2, style: 2, label: "+30m", custom_id: `reminder_snooze30:${reminder.id}` }
               ]
             }
           ]

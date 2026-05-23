@@ -97,6 +97,35 @@ const commands = [
       },
       {
         type: 1,
+        name: "snooze",
+        description: "Delay a reminder by a short amount of time",
+        options: [
+          { type: 3, name: "id", description: "Reminder ID", required: true },
+          {
+            type: 4,
+            name: "minutes",
+            description: "Minutes to delay",
+            required: true,
+            choices: [
+              { name: "10 minutes", value: 10 },
+              { name: "30 minutes", value: 30 },
+              { name: "1 hour", value: 60 }
+            ]
+          }
+        ]
+      },
+      {
+        type: 1,
+        name: "reschedule",
+        description: "Change a reminder date and time",
+        options: [
+          { type: 3, name: "id", description: "Reminder ID", required: true },
+          { type: 3, name: "date", description: "New date, for example 2026-05-24", required: true },
+          { type: 3, name: "time", description: "New time, for example 21:00", required: true }
+        ]
+      },
+      {
+        type: 1,
         name: "summary",
         description: "Show today's summary"
       }

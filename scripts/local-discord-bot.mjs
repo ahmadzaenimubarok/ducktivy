@@ -113,13 +113,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 
+  if (subcommand === "snooze") {
+    await handleSnoozeReminder(interaction);
+    return;
+  }
+
+  if (subcommand === "reschedule") {
+    await handleRescheduleReminder(interaction);
+    return;
+  }
+
   if (subcommand === "summary") {
     await handleSummary(interaction);
     return;
   }
 
   await interaction.reply({
-    content: "Command ini sudah terdaftar, tapi handler lokal MVP baru mendukung /remind test, /remind add, /remind list, /remind done, /remind skip, dan /remind summary.",
+    content: "Command ini sudah terdaftar, tapi handler lokal MVP baru mendukung /remind test, /remind add, /remind list, /remind done, /remind skip, /remind snooze, /remind reschedule, dan /remind summary.",
     ephemeral: true
   });
 });
@@ -199,6 +209,14 @@ function reminderActionRow(reminderId) {
     new ButtonBuilder()
       .setCustomId(`reminder:skip:${reminderId}`)
       .setLabel("Skip")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`reminder:snooze10:${reminderId}`)
+      .setLabel("+10m")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`reminder:snooze30:${reminderId}`)
+      .setLabel("+30m")
       .setStyle(ButtonStyle.Secondary)
   );
 }
@@ -343,13 +361,38 @@ async function handleReminderButton(interaction) {
 
   const [scope, action, id] = interaction.customId.split(":");
 
-  if (scope !== "reminder" || !["select", "done", "skip"].includes(action) || !id) {
+  if (scope !== "reminder" || !["select", "done", "skip", "snooze10", "snooze30"].includes(action) || !id) {
     await interaction.reply({ content: "Button reminder tidak valid.", ephemeral: true });
     return;
   }
 
   if (action === "select") {
     await handleReminderSelect(interaction, id);
+    return;
+  }
+
+  if (action === "snooze10" || action === "snooze30") {
+    const minutes = action === "snooze10" ? 10 : 30;
+    const { data, error } = await updateReminderSchedule({
+      id,
+      userId: interaction.user.id,
+      remindAt: new Date(Date.now() + minutes * 60_000),
+      action: "snoozed",
+      message: `Snoozed from Discord button for ${minutes} minutes`
+    });
+
+    if (error || !data) {
+      await interaction.update({
+        content: "Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.",
+        components: []
+      });
+      return;
+    }
+
+    await interaction.update({
+      content: `Reminder ditunda ${minutes} menit.\n\nJadwal baru: ${formatTime(data.remind_at)}`,
+      components: []
+    });
     return;
   }
 
@@ -450,6 +493,101 @@ async function markReminderStatus(id, status, userId) {
     reminder_id: data.id,
     action: logAction,
     message: `Marked ${status} from local Discord bot`
+  });
+
+  return { data, error: null };
+}
+
+async function handleSnoozeReminder(interaction) {
+  if (!supabase) {
+    await interaction.reply({
+      content: "Supabase belum dikonfigurasi. Isi SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY di .env.",
+      ephemeral: true
+    });
+    return;
+  }
+
+  const id = interaction.options.getString("id", true);
+  const minutes = interaction.options.getInteger("minutes", true);
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const { data, error } = await updateReminderSchedule({
+    id,
+    userId: interaction.user.id,
+    remindAt: new Date(Date.now() + minutes * 60_000),
+    action: "snoozed",
+    message: `Snoozed from Discord command for ${minutes} minutes`
+  });
+
+  if (error || !data) {
+    await interaction.editReply("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    return;
+  }
+
+  await interaction.editReply(`Reminder ditunda ${minutes} menit.\nJadwal baru: ${formatTime(data.remind_at)}`);
+}
+
+async function handleRescheduleReminder(interaction) {
+  if (!supabase) {
+    await interaction.reply({
+      content: "Supabase belum dikonfigurasi. Isi SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY di .env.",
+      ephemeral: true
+    });
+    return;
+  }
+
+  const id = interaction.options.getString("id", true);
+  const date = interaction.options.getString("date", true);
+  const time = interaction.options.getString("time", true);
+  const remindAt = parseReminderDateTime(date, time);
+
+  if (!remindAt) {
+    await interaction.reply({
+      content: "Format tanggal atau jam belum valid. Contoh: date `2026-05-24`, time `21:00`.",
+      ephemeral: true
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const { data, error } = await updateReminderSchedule({
+    id,
+    userId: interaction.user.id,
+    remindAt,
+    action: "rescheduled",
+    message: `Rescheduled from Discord command to ${remindAt.toISOString()}`
+  });
+
+  if (error || !data) {
+    await interaction.editReply("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    return;
+  }
+
+  await interaction.editReply(`Reminder dijadwalkan ulang.\nJadwal baru: ${formatTime(data.remind_at)}`);
+}
+
+async function updateReminderSchedule({ id, userId, remindAt, action, message }) {
+  const { data, error } = await supabase
+    .from("reminders")
+    .update({
+      remind_at: remindAt.toISOString(),
+      status: "pending",
+      sent_at: null
+    })
+    .eq("id", id)
+    .eq("discord_user_id", userId)
+    .in("status", ["pending", "sent"])
+    .select("id, remind_at, status")
+    .single();
+
+  if (error || !data) return { data, error };
+
+  await supabase.from("reminder_logs").insert({
+    reminder_id: data.id,
+    action,
+    message
   });
 
   return { data, error: null };

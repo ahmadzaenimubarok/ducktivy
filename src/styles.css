@@ -299,6 +299,16 @@ label {
   background: #fbfcfd;
 }
 
+.reschedule-form {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid #e0e6ea;
+  padding-top: 12px;
+}
+
 .reminder-main h3 {
   margin: 8px 0 6px;
   font-size: 1rem;
@@ -327,7 +337,9 @@ label {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  justify-content: end;
 }
 
 .pill {
@@ -389,6 +401,14 @@ label {
   .account {
     justify-items: start;
     justify-content: start;
+  }
+
+  .actions {
+    justify-content: start;
+  }
+
+  .reschedule-form {
+    grid-template-columns: 1fr;
   }
 
   .account {

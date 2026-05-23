@@ -28,12 +28,16 @@ function App() {
   const [defaults, setDefaults] = useState({ channelId: "" });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [rescheduleId, setRescheduleId] = useState("");
+  const [rescheduleForm, setRescheduleForm] = useState({
+    date: today,
+    time: nearestTime()
+  });
   const [form, setForm] = useState({
     task: "",
     date: today,
     time: nearestTime(),
     channelId: "",
-    duration: "",
     strictMode: true
   });
 
@@ -105,7 +109,7 @@ function App() {
     try {
       await apiPost("/api/reminders", form, accessToken);
       setMessage("Reminder created.");
-      setForm((current) => ({ ...current, task: "", duration: "" }));
+      setForm((current) => ({ ...current, task: "" }));
       await loadDashboard();
     } catch (error) {
       setMessage(error.message);
@@ -119,6 +123,37 @@ function App() {
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  async function snoozeReminder(id, minutes) {
+    try {
+      await apiPatchJson(`/api/reminders/${id}/snooze`, { minutes }, accessToken);
+      setMessage(`Reminder snoozed for ${minutes} minutes.`);
+      await loadDashboard();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function rescheduleReminder(event, id) {
+    event.preventDefault();
+    try {
+      await apiPatchJson(`/api/reminders/${id}/reschedule`, rescheduleForm, accessToken);
+      setMessage("Reminder rescheduled.");
+      setRescheduleId("");
+      await loadDashboard();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  function openReschedule(reminder) {
+    const date = new Date(reminder.remind_at);
+    setRescheduleId(reminder.id);
+    setRescheduleForm({
+      date: localDateInputValue(date),
+      time: localTimeInputValue(date)
+    });
   }
 
   async function loginWithDiscord() {
@@ -237,16 +272,6 @@ function App() {
                 required
               />
             </label>
-            <label>
-              Duration
-              <input
-                type="number"
-                min="1"
-                value={form.duration}
-                onChange={(event) => setFormValue("duration", event.target.value)}
-                placeholder="30"
-              />
-            </label>
             <label className="check wide">
               <input
                 type="checkbox"
@@ -292,9 +317,38 @@ function App() {
                         <button className="muted" type="button" onClick={() => markReminder(reminder.id, "skip")}>
                           Skip
                         </button>
+                        <button className="muted" type="button" onClick={() => snoozeReminder(reminder.id, 10)}>
+                          +10m
+                        </button>
+                        <button className="muted" type="button" onClick={() => snoozeReminder(reminder.id, 30)}>
+                          +30m
+                        </button>
+                        <button className="muted" type="button" onClick={() => openReschedule(reminder)}>
+                          Reschedule
+                        </button>
                       </div>
                     ) : null}
                   </div>
+                  {rescheduleId === reminder.id ? (
+                    <form className="reschedule-form" onSubmit={(event) => rescheduleReminder(event, reminder.id)}>
+                      <input
+                        type="date"
+                        value={rescheduleForm.date}
+                        onChange={(event) => setRescheduleValue("date", event.target.value)}
+                        required
+                      />
+                      <input
+                        type="time"
+                        value={rescheduleForm.time}
+                        onChange={(event) => setRescheduleValue("time", event.target.value)}
+                        required
+                      />
+                      <button type="submit">Save</button>
+                      <button className="muted" type="button" onClick={() => setRescheduleId("")}>
+                        Cancel
+                      </button>
+                    </form>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -306,6 +360,10 @@ function App() {
 
   function setFormValue(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function setRescheduleValue(key, value) {
+    setRescheduleForm((current) => ({ ...current, [key]: value }));
   }
 }
 
@@ -362,6 +420,15 @@ async function apiPatch(path, token) {
   return parseResponse(response);
 }
 
+async function apiPatchJson(path, body, token) {
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify(body)
+  });
+  return parseResponse(response);
+}
+
 function authHeaders(token) {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -386,12 +453,19 @@ function nearestTime() {
   return date.toTimeString().slice(0, 5);
 }
 
-function localDateInputValue() {
-  const date = new Date();
+function localDateInputValue(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function localTimeInputValue(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${hour}:${minute}`;
 }
 
 function emptySummary() {

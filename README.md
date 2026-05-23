@@ -186,6 +186,8 @@ Register slash commands for:
 - `/remind list`
 - `/remind done`
 - `/remind skip`
+- `/remind snooze`
+- `/remind reschedule`
 - `/remind summary`
 - `/remind test`
 

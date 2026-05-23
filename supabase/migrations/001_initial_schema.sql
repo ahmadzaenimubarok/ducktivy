@@ -25,7 +25,7 @@ create table if not exists public.reminder_logs (
   message text null,
   created_at timestamptz not null default now(),
   constraint reminder_logs_action_check check (
-    action in ('created', 'sent', 'done', 'skipped', 'cancelled', 'failed')
+    action in ('created', 'sent', 'done', 'skipped', 'cancelled', 'failed', 'snoozed', 'rescheduled')
   )
 );
 

@@ -99,6 +99,12 @@ File ini membuat tabel:
 
 Karena aplikasi server memakai `SUPABASE_SERVICE_ROLE_KEY`, Row Level Security yang aktif tetap bisa dilewati dari proses server.
 
+Jika database sudah pernah dibuat sebelum fitur snooze/reschedule, jalankan migration tambahan:
+
+```txt
+supabase/migrations/002_reschedule_actions.sql
+```
+
 ## 6. Setup Supabase Auth Discord
 
 Dashboard memakai Supabase Auth dengan Discord provider agar data reminder bersifat personal.
@@ -107,11 +113,13 @@ Di Discord Developer Portal:
 
 1. Buka application yang sama dengan bot.
 2. Masuk ke OAuth2.
-3. Tambahkan redirect URL Supabase:
+3. Pada bagian Redirects, tambahkan redirect URL Supabase Auth.
 
 ```txt
 https://PROJECT_ID.supabase.co/auth/v1/callback
 ```
+
+Penting: yang dimasukkan ke Discord Redirects adalah URL callback Supabase, bukan domain dashboard. Jika Discord menampilkan `Invalid OAuth2 redirect_uri`, berarti URL callback ini belum ada, salah project ID, ada typo, atau beda trailing slash.
 
 Di Supabase Dashboard:
 
@@ -333,6 +341,8 @@ Cek Discord:
 /remind test
 /remind add task:"Belajar Laravel 30 menit" date:"2026-05-23" time:"21:00"
 /remind list
+/remind snooze id:"REMINDER_ID" minutes:10
+/remind reschedule id:"REMINDER_ID" date:"2026-05-24" time:"21:30"
 ```
 
 ## 14. Update Aplikasi
