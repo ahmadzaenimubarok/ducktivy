@@ -609,8 +609,8 @@ async function handleSummary(interaction) {
     .from("reminders")
     .select("status")
     .eq("discord_user_id", interaction.user.id)
-    .gte("created_at", start.toISOString())
-    .lt("created_at", end.toISOString());
+    .gte("remind_at", start.toISOString())
+    .lt("remind_at", end.toISOString());
 
   if (error) {
     await interaction.editReply(`Gagal mengambil summary: ${error.message}`);

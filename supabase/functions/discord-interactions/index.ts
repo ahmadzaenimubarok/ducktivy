@@ -186,8 +186,8 @@ async function handleCommand(interaction: any) {
       .from("reminders")
       .select("status")
       .eq("discord_user_id", userId)
-      .gte("created_at", start.toISOString())
-      .lt("created_at", end.toISOString());
+      .gte("remind_at", start.toISOString())
+      .lt("remind_at", end.toISOString());
 
     if (error) return interactionResponse(`Failed to load summary: ${error.message}`);
 

@@ -120,7 +120,7 @@ async function handleOverview(request, response, url) {
   if (filter !== "all") {
     if (filter === "today") {
       const { start, end } = todayRange();
-      query = query.gte("created_at", start.toISOString()).lt("created_at", end.toISOString());
+      query = query.gte("remind_at", start.toISOString()).lt("remind_at", end.toISOString());
     } else if (filter === "active") {
       query = query.in("status", ["pending", "sent"]);
     } else {
@@ -310,8 +310,8 @@ async function loadTodayReminders(discordUserId) {
     .from("reminders")
     .select("status")
     .eq("discord_user_id", discordUserId)
-    .gte("created_at", start.toISOString())
-    .lt("created_at", end.toISOString());
+    .gte("remind_at", start.toISOString())
+    .lt("remind_at", end.toISOString());
 
   if (error) return [];
   return data;
