@@ -50,7 +50,7 @@ function App() {
   useEffect(() => {
     if (!supabase) {
       setAuthLoading(false);
-      setMessage("Supabase auth env belum diset.");
+      setMessage("Environment Supabase auth belum diset.");
       return undefined;
     }
 
@@ -112,7 +112,7 @@ function App() {
     event.preventDefault();
     try {
       await apiPost("/api/reminders", form, accessToken);
-      setMessage("Reminder created.");
+      setMessage("Reminder berhasil dibuat.");
       setForm((current) => ({ ...current, task: "" }));
       await loadDashboard();
     } catch (error) {
@@ -130,12 +130,12 @@ function App() {
   }
 
   async function deleteReminder(id) {
-    const confirmed = window.confirm("Delete this reminder?");
+    const confirmed = window.confirm("Hapus reminder ini?");
     if (!confirmed) return;
 
     try {
       await apiDelete(`/api/reminders/${id}`, accessToken);
-      setMessage("Reminder deleted.");
+      setMessage("Reminder berhasil dihapus.");
       setSnoozeId("");
       setRescheduleId("");
 
@@ -153,7 +153,7 @@ function App() {
   async function snoozeReminder(id, minutes) {
     try {
       await apiPatchJson(`/api/reminders/${id}/snooze`, { minutes }, accessToken);
-      setMessage(`Reminder snoozed for ${minutes} minutes.`);
+      setMessage(`Reminder ditunda ${minutes} menit.`);
       setSnoozeId("");
       await loadDashboard();
     } catch (error) {
@@ -165,7 +165,7 @@ function App() {
     event.preventDefault();
     try {
       await apiPatchJson(`/api/reminders/${id}/reschedule`, rescheduleForm, accessToken);
-      setMessage("Reminder rescheduled.");
+      setMessage("Reminder berhasil dijadwalkan ulang.");
       setRescheduleId("");
       await loadDashboard();
     } catch (error) {
@@ -185,7 +185,7 @@ function App() {
 
   async function loginWithDiscord() {
     if (!supabase) {
-      setMessage("Supabase auth env belum diset.");
+      setMessage("Environment Supabase auth belum diset.");
       return;
     }
 

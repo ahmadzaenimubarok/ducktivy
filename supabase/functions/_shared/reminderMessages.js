@@ -2,19 +2,20 @@ export function reminderMessage(task) {
   return [
     `Waktunya mulai: ${task}.`,
     "",
-    "Aturannya:",
+    "Aturannya sederhana:",
     "1. Mulai sekarang.",
-    "2. Jangan buka hal lain.",
-    "3. Kalau malas, tetap mulai 5 menit.",
+    "2. Fokus ke satu hal ini saja.",
+    "3. Kalau berat, kerjakan 5 menit pertama dulu.",
     "",
-    "Klik Done kalau selesai, atau Skip kalau kamu benar-benar tidak mengerjakannya."
+    "Klik Done kalau selesai.",
+    "Klik Skip hanya kalau benar-benar tidak dikerjakan."
   ].join("\n");
 }
 
 export function doneMessage() {
-  return "Selesai dicatat.\n\nBagus. Kamu menyelesaikan apa yang sudah kamu jadwalkan.";
+  return "Selesai dicatat.\n\nBagus. Kamu menepati jadwal yang kamu buat sendiri.";
 }
 
 export function skippedMessage() {
-  return "Skip dicatat.\n\nKalau ini karena alasan valid, tidak masalah.\nKalau cuma malas, jangan dibiasakan.";
+  return "Skip dicatat.\n\nKalau alasannya valid, tidak masalah.\nKalau cuma malas atau menunda, jangan jadikan pola.";
 }

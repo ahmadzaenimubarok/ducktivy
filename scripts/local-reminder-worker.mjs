@@ -174,13 +174,13 @@ function reminderContent(reminder) {
     `<@${reminder.discord_user_id}>`,
     "",
     `Waktunya mulai: ${reminder.task}`,
-    reminder.duration_minutes ? `Durasi target: ${reminder.duration_minutes} menit` : null,
     "",
     reminder.strict_mode
-      ? "Jangan negosiasi dengan jadwal sendiri. Mulai 5 menit pertama dulu."
-      : "Mulai dari langkah kecil dulu.",
+      ? "Jangan negosiasi dengan jadwal sendiri.\nMulai dari 5 menit pertama dulu."
+      : "Mulai kecil dulu. Yang penting bergerak sekarang.",
     "",
-    "Pilih Done kalau selesai, atau Skip kalau benar-benar tidak dikerjakan."
+    "Pilih Done kalau selesai.",
+    "Pilih Skip hanya kalau benar-benar tidak dikerjakan."
   ]
     .filter(Boolean)
     .join("\n");

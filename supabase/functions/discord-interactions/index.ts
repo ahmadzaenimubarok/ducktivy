@@ -58,8 +58,8 @@ async function handleButton(interaction: any) {
       message: `Snoozed from Discord button for ${minutes} minutes`
     });
 
-    if (!updated) return interactionResponse("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
-    return interactionResponse(`Reminder ditunda ${minutes} menit.\nJadwal baru: ${formatAppTime(updated.remind_at)}`);
+    if (!updated) return interactionResponse(notFoundMessage());
+    return interactionResponse(`Reminder ditunda ${minutes} menit.\n\nJadwal baru: ${formatAppTime(updated.remind_at)}\nJangan ditunda lagi kalau tidak perlu.`);
   }
 
   return interactionResponse("Unknown reminder action.");
@@ -75,7 +75,7 @@ async function handleCommand(interaction: any) {
   }
 
   if (subcommand.name === "test") {
-    return interactionResponse("Bot aktif. Reminder system siap.");
+    return interactionResponse("Bot aktif. Sistem reminder siap dipakai.");
   }
 
   const options = Object.fromEntries(
@@ -109,7 +109,7 @@ async function handleCommand(interaction: any) {
       message: "Created from Discord slash command"
     });
 
-    return interactionResponse(`Reminder created:\n${data.task}\nTime: ${options.time}\nID: ${data.id}`);
+    return interactionResponse(`Reminder dibuat.\n\nTask: ${data.task}\nWaktu: ${options.time}\nID: ${data.id}`);
   }
 
   if (subcommand.name === "list") {
@@ -124,7 +124,7 @@ async function handleCommand(interaction: any) {
       .limit(10);
 
     if (error) return interactionResponse(`Failed to list reminders: ${error.message}`);
-    if (!data?.length) return interactionResponse("Pending reminders: none");
+    if (!data?.length) return interactionResponse("Tidak ada reminder pending.");
 
     const lines = data.map((reminder: any, index: number) => {
       const time = formatAppTime(reminder.remind_at);
@@ -156,8 +156,8 @@ async function handleCommand(interaction: any) {
       message: `Snoozed from Discord command for ${minutes} minutes`
     });
 
-    if (!updated) return interactionResponse("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
-    return interactionResponse(`Reminder ditunda ${minutes} menit.\nJadwal baru: ${formatAppTime(updated.remind_at)}`);
+    if (!updated) return interactionResponse(notFoundMessage());
+    return interactionResponse(`Reminder ditunda ${minutes} menit.\n\nJadwal baru: ${formatAppTime(updated.remind_at)}\nJangan ditunda lagi kalau tidak perlu.`);
   }
 
   if (subcommand.name === "reschedule") {
@@ -174,8 +174,8 @@ async function handleCommand(interaction: any) {
       message: `Rescheduled from Discord command to ${remindAt}`
     });
 
-    if (!updated) return interactionResponse("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
-    return interactionResponse(`Reminder dijadwalkan ulang.\nJadwal baru: ${formatAppTime(updated.remind_at)}`);
+    if (!updated) return interactionResponse(notFoundMessage());
+    return interactionResponse(`Reminder dijadwalkan ulang.\n\nJadwal baru: ${formatAppTime(updated.remind_at)}\nPastikan ini penyesuaian, bukan pelarian.`);
   }
 
   if (subcommand.name === "summary") {
@@ -269,6 +269,10 @@ function interactionResponse(content: string) {
       flags: 64
     }
   });
+}
+
+function notFoundMessage() {
+  return "Reminder tidak ditemukan.\n\nKemungkinan sudah selesai, sudah di-skip, bukan milik kamu, atau ID-nya salah.";
 }
 
 function json(body: unknown, status = 200) {

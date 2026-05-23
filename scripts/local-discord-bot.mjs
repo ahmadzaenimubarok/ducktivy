@@ -87,7 +87,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (subcommand === "test") {
     await interaction.reply({
-      content: "Bot aktif dari lokal. Reminder system siap.",
+      content: "Bot aktif. Sistem reminder siap dipakai.",
       ephemeral: true
     });
     return;
@@ -189,9 +189,10 @@ async function handleAddReminder(interaction) {
 
   await interaction.editReply({
     content: [
-      "Reminder created:",
-      data.task,
-      `Time: ${formatTime(data.remind_at)}`,
+      "Reminder dibuat.",
+      "",
+      `Task: ${data.task}`,
+      `Waktu: ${formatTime(data.remind_at)}`,
       `ID: ${data.id}`,
       "",
       "Shortcut:"
@@ -273,7 +274,7 @@ async function handleListReminders(interaction) {
   }
 
   if (!data.length) {
-    await interaction.editReply("Pending reminders: none");
+    await interaction.editReply("Tidak ada reminder pending.");
     return;
   }
 
@@ -303,7 +304,7 @@ async function handleDoneReminder(interaction) {
   const { data, error } = await markReminderStatus(id, "done", interaction.user.id);
 
   if (error || !data) {
-    await interaction.editReply("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    await interaction.editReply(notFoundMessage());
     return;
   }
 
@@ -311,7 +312,7 @@ async function handleDoneReminder(interaction) {
     [
       "Selesai dicatat.",
       "",
-      "Bagus. Kamu menyelesaikan apa yang sudah kamu jadwalkan.",
+      "Bagus. Kamu menepati jadwal yang kamu buat sendiri.",
       "",
       `Task: ${data.task}`
     ].join("\n")
@@ -334,7 +335,7 @@ async function handleSkipReminder(interaction) {
   const { data, error } = await markReminderStatus(id, "skipped", interaction.user.id);
 
   if (error || !data) {
-    await interaction.editReply("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    await interaction.editReply(notFoundMessage());
     return;
   }
 
@@ -342,8 +343,8 @@ async function handleSkipReminder(interaction) {
     [
       "Skip dicatat.",
       "",
-      "Kalau ini karena alasan valid, tidak masalah.",
-      "Kalau cuma malas, jangan dibiasakan.",
+      "Kalau alasannya valid, tidak masalah.",
+      "Kalau cuma malas atau menunda, jangan jadikan pola.",
       "",
       `Task: ${data.task}`
     ].join("\n")
@@ -383,14 +384,14 @@ async function handleReminderButton(interaction) {
 
     if (error || !data) {
       await interaction.update({
-        content: "Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.",
+        content: notFoundMessage(),
         components: []
       });
       return;
     }
 
     await interaction.update({
-      content: `Reminder ditunda ${minutes} menit.\n\nJadwal baru: ${formatTime(data.remind_at)}`,
+      content: `Reminder ditunda ${minutes} menit.\n\nJadwal baru: ${formatTime(data.remind_at)}\nJangan ditunda lagi kalau tidak perlu.`,
       components: []
     });
     return;
@@ -401,7 +402,7 @@ async function handleReminderButton(interaction) {
 
   if (error || !data) {
     await interaction.update({
-      content: "Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.",
+      content: notFoundMessage(),
       components: []
     });
     return;
@@ -412,7 +413,7 @@ async function handleReminderButton(interaction) {
       content: [
         "Selesai dicatat.",
         "",
-        "Bagus. Kamu menyelesaikan apa yang sudah kamu jadwalkan.",
+        "Bagus. Kamu menepati jadwal yang kamu buat sendiri.",
         "",
         `Task: ${data.task}`
       ].join("\n"),
@@ -425,8 +426,8 @@ async function handleReminderButton(interaction) {
     content: [
       "Skip dicatat.",
       "",
-      "Kalau ini karena alasan valid, tidak masalah.",
-      "Kalau cuma malas, jangan dibiasakan.",
+      "Kalau alasannya valid, tidak masalah.",
+      "Kalau cuma malas atau menunda, jangan jadikan pola.",
       "",
       `Task: ${data.task}`
     ].join("\n"),
@@ -445,7 +446,7 @@ async function handleReminderSelect(interaction, id) {
 
   if (error || !data) {
     await interaction.update({
-      content: "Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.",
+      content: notFoundMessage(),
       components: []
     });
     return;
@@ -521,11 +522,11 @@ async function handleSnoozeReminder(interaction) {
   });
 
   if (error || !data) {
-    await interaction.editReply("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    await interaction.editReply(notFoundMessage());
     return;
   }
 
-  await interaction.editReply(`Reminder ditunda ${minutes} menit.\nJadwal baru: ${formatTime(data.remind_at)}`);
+  await interaction.editReply(`Reminder ditunda ${minutes} menit.\n\nJadwal baru: ${formatTime(data.remind_at)}\nJangan ditunda lagi kalau tidak perlu.`);
 }
 
 async function handleRescheduleReminder(interaction) {
@@ -561,11 +562,11 @@ async function handleRescheduleReminder(interaction) {
   });
 
   if (error || !data) {
-    await interaction.editReply("Reminder tidak ditemukan, bukan milik kamu, atau sudah selesai/skip.");
+    await interaction.editReply(notFoundMessage());
     return;
   }
 
-  await interaction.editReply(`Reminder dijadwalkan ulang.\nJadwal baru: ${formatTime(data.remind_at)}`);
+  await interaction.editReply(`Reminder dijadwalkan ulang.\n\nJadwal baru: ${formatTime(data.remind_at)}\nPastikan ini penyesuaian, bukan pelarian.`);
 }
 
 async function updateReminderSchedule({ id, userId, remindAt, action, message }) {
@@ -638,4 +639,8 @@ async function handleSummary(interaction) {
 
 function todayRange() {
   return appDayRange();
+}
+
+function notFoundMessage() {
+  return "Reminder tidak ditemukan.\n\nKemungkinan sudah selesai, sudah di-skip, bukan milik kamu, atau ID-nya salah.";
 }

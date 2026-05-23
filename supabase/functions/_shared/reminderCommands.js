@@ -49,11 +49,11 @@ export async function runReminderCommand(input, store, now = new Date()) {
         strict_mode: input.flags.strict !== "false"
       });
 
-      return `Reminder created:\n${reminder.task}\nTime: ${time}\nID: ${reminder.id}`;
+      return `Reminder dibuat.\n\nTask: ${reminder.task}\nWaktu: ${time}\nID: ${reminder.id}`;
     }
     case "list": {
       const reminders = await store.listReminders(input.flags.user || "test-user");
-      if (reminders.length === 0) return "Pending reminders: none";
+      if (reminders.length === 0) return "Tidak ada reminder pending.";
 
       return [
         "Pending reminders:",
@@ -67,13 +67,13 @@ export async function runReminderCommand(input, store, now = new Date()) {
       const id = input.flags.id;
       if (!id) throw new Error("--id is required");
       await store.markReminder(id, "done");
-      return "Selesai dicatat.\n\nBagus. Kamu menyelesaikan apa yang sudah kamu jadwalkan.";
+      return "Selesai dicatat.\n\nBagus. Kamu menepati jadwal yang kamu buat sendiri.";
     }
     case "skip": {
       const id = input.flags.id;
       if (!id) throw new Error("--id is required");
       await store.markReminder(id, "skipped");
-      return "Skip dicatat.\n\nKalau ini karena alasan valid, tidak masalah.\nKalau cuma malas, jangan dibiasakan.";
+      return "Skip dicatat.\n\nKalau alasannya valid, tidak masalah.\nKalau cuma malas atau menunda, jangan jadikan pola.";
     }
     case "summary": {
       const summary = await store.summary(input.flags.user || "test-user");
