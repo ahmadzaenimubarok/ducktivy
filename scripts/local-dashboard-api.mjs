@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
-import { appDayRange, parseAppDateTime } from "../supabase/functions/_shared/dateTime.js";
+import { appDayRange, appTimeZone, parseAppDateTime } from "../supabase/functions/_shared/dateTime.js";
 
 function loadDotEnv(path = ".env") {
   if (!existsSync(path)) return;
@@ -49,6 +49,8 @@ const port = Number(process.env.DASHBOARD_API_PORT || 8787);
 
 const server = createServer(async (request, response) => {
   try {
+    setCorsHeaders(request, response);
+
     if (request.method === "OPTIONS") {
       send(response, 204);
       return;
@@ -68,6 +70,11 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "POST" && url.pathname === "/api/reminders") {
       await handleCreateReminder(request, response);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/reminders/parse") {
+      await handleParseReminder(request, response);
       return;
     }
 
@@ -206,6 +213,33 @@ async function handleCreateReminder(request, response) {
   send(response, 201, { id: data.id });
 }
 
+async function handleParseReminder(request, response) {
+  const user = await requireDashboardUser(request, response);
+  if (!user) return;
+
+  const body = await readJson(request);
+  const text = String(body.text || "").trim();
+
+  if (!text) {
+    send(response, 400, { error: "Isi chat reminder dulu." });
+    return;
+  }
+
+  if (!process.env.GROQ_API_KEY) {
+    send(response, 500, { error: "GROQ_API_KEY belum diset di server." });
+    return;
+  }
+
+  const parsed = await parseReminderWithGroq(text);
+  const reminder = normalizeParsedReminder(parsed);
+
+  send(response, 200, {
+    reminder,
+    missingFields: missingReminderFields(reminder),
+    raw: parsed
+  });
+}
+
 async function handleMarkReminder(request, response, id, action) {
   const user = await requireDashboardUser(request, response);
   if (!user) return;
@@ -341,6 +375,111 @@ async function handleDeleteReminder(request, response, id) {
   send(response, 200, { id: data.id });
 }
 
+async function parseReminderWithGroq(text) {
+  const context = appNowContext();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You extract reminder data from Indonesian or English user text. Return only valid JSON with keys: task, date, time, durationMinutes, strictMode, confidence, notes. date must be YYYY-MM-DD in the app timezone. time must be HH:mm 24-hour format. durationMinutes is a number or null. strictMode defaults to true unless the user asks for a soft/casual reminder. If a field is not present and cannot be inferred, use null. Do not invent task details."
+          },
+          {
+            role: "user",
+            content: [
+              `App timezone: ${context.timeZone}`,
+              `Current app date: ${context.date}`,
+              `Current app time: ${context.time}`,
+              `Reminder text: ${text}`
+            ].join("\n")
+          }
+        ]
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Groq request failed.");
+    }
+
+    const content = data.choices?.[0]?.message?.content;
+    return parseJsonObject(content);
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Groq terlalu lama merespons. Coba lagi.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeParsedReminder(parsed) {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(parsed.date || "")) ? parsed.date : "";
+  const time = /^\d{2}:\d{2}$/.test(String(parsed.time || "")) ? parsed.time : "";
+  const duration = Number(parsed.durationMinutes);
+
+  return {
+    task: typeof parsed.task === "string" ? parsed.task.trim() : "",
+    date,
+    time,
+    duration: Number.isFinite(duration) && duration > 0 ? duration : "",
+    strictMode: parsed.strictMode !== false,
+    confidence: Number.isFinite(Number(parsed.confidence)) ? Number(parsed.confidence) : null,
+    notes: typeof parsed.notes === "string" ? parsed.notes.trim() : ""
+  };
+}
+
+function missingReminderFields(reminder) {
+  return ["task", "date", "time"].filter((field) => !reminder[field]);
+}
+
+function parseJsonObject(content) {
+  if (!content) throw new Error("Groq tidak mengembalikan hasil parsing.");
+
+  try {
+    return JSON.parse(content);
+  } catch (_error) {
+    const match = String(content).match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("Format respons Groq tidak valid.");
+    return JSON.parse(match[0]);
+  }
+}
+
+function appNowContext() {
+  const timeZone = appTimeZone();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return {
+    timeZone,
+    date: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}`
+  };
+}
+
 async function loadTodayReminders(discordUserId) {
   const { start, end } = todayRange();
   const { data, error } = await supabase
@@ -450,10 +589,41 @@ function readJson(request) {
 
 function send(response, status, body = null) {
   response.writeHead(status, {
-    "Access-Control-Allow-Origin": process.env.DASHBOARD_ORIGIN || "http://localhost:5173",
-    "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Content-Type": "application/json"
   });
   response.end(body ? JSON.stringify(body) : "");
+}
+
+function setCorsHeaders(request, response) {
+  const origin = request.headers.origin;
+  const allowedOrigins = allowedDashboardOrigins();
+  const allowOrigin =
+    origin && (allowedOrigins.includes(origin) || isLocalOrigin(origin))
+      ? origin
+      : allowedOrigins[0];
+  const requestedHeaders = request.headers["access-control-request-headers"];
+
+  response.setHeader("Access-Control-Allow-Origin", allowOrigin);
+  response.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", requestedHeaders || "Content-Type, Authorization");
+  response.setHeader("Access-Control-Max-Age", "86400");
+  response.setHeader("Vary", "Origin, Access-Control-Request-Headers");
+}
+
+function allowedDashboardOrigins() {
+  const configured = String(process.env.DASHBOARD_ORIGIN || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  return [...new Set([...configured, "http://localhost:5173", "http://127.0.0.1:5173"])];
+}
+
+function isLocalOrigin(origin) {
+  try {
+    const url = new URL(origin);
+    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  } catch (_error) {
+    return false;
+  }
 }

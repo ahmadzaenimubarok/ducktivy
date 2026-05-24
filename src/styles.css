@@ -13,7 +13,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -37,7 +38,8 @@ button:disabled {
   opacity: 0.48;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   min-height: 40px;
   border: 1px solid #c8d1d8;
@@ -45,6 +47,11 @@ input {
   padding: 8px 10px;
   color: #172026;
   background: #ffffff;
+}
+
+textarea {
+  resize: vertical;
+  line-height: 1.45;
 }
 
 h1,
@@ -200,6 +207,63 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.chat-compose {
+  display: grid;
+  gap: 10px;
+  border-bottom: 1px solid #e0e6ea;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+}
+
+.chat-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #d9e0e5;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8fafb;
+  color: #40515d;
+  font-size: 0.86rem;
+}
+
+.chat-result div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-result strong {
+  color: #176a63;
+}
+
+.chat-result span {
+  overflow-wrap: anywhere;
+}
+
+.draft-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.draft-actions button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}
+
+.danger-muted {
+  color: #7c3333;
+  background: #f3e7e7;
+}
+
+.danger-muted:hover {
+  color: #ffffff;
+  background: #b94747;
 }
 
 .wide {
@@ -469,7 +533,8 @@ label {
 @media (max-width: 640px) {
   .topbar,
   .panel-head,
-  .reminder-item {
+  .reminder-item,
+  .chat-result {
     display: grid;
     grid-template-columns: 1fr;
   }
@@ -497,6 +562,10 @@ label {
   .actions {
     justify-content: start;
     flex-wrap: wrap;
+  }
+
+  .draft-actions {
+    justify-content: start;
   }
 
   .reschedule-form {

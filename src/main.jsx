@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
 import "./styles.css";
@@ -30,6 +30,9 @@ function App() {
   const [defaults, setDefaults] = useState({ channelId: "" });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [chatPrompt, setChatPrompt] = useState("");
+  const [chatParsing, setChatParsing] = useState(false);
+  const [chatResult, setChatResult] = useState(null);
   const [rescheduleId, setRescheduleId] = useState("");
   const [snoozeId, setSnoozeId] = useState("");
   const [rescheduleForm, setRescheduleForm] = useState({
@@ -40,9 +43,11 @@ function App() {
     task: "",
     date: today,
     time: nearestTime(),
+    duration: "",
     channelId: "",
     strictMode: true
   });
+  const taskInputRef = useRef(null);
 
   const activeCount = useMemo(() => summary.pending + summary.sent, [summary]);
   const accessToken = session?.access_token || "";
@@ -118,6 +123,54 @@ function App() {
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  async function parseChatReminder(event) {
+    event.preventDefault();
+    setChatParsing(true);
+    setChatResult(null);
+
+    try {
+      const data = await apiPost("/api/reminders/parse", { text: chatPrompt }, accessToken);
+      const reminder = data.reminder || {};
+      setForm((current) => ({
+        ...current,
+        task: reminder.task || current.task,
+        date: reminder.date || current.date,
+        time: reminder.time || current.time,
+        duration: reminder.duration || "",
+        strictMode: reminder.strictMode ?? current.strictMode
+      }));
+      setChatResult(data);
+
+      if (data.missingFields?.length) {
+        setMessage(`AI masih butuh data: ${data.missingFields.join(", ")}.`);
+      } else {
+        setMessage("Draft reminder berhasil dibuat dari chat.");
+      }
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setChatParsing(false);
+    }
+  }
+
+  function clearChatDraft() {
+    setChatPrompt("");
+    setChatResult(null);
+    setMessage("");
+    setForm((current) => ({
+      ...current,
+      task: "",
+      date: today,
+      time: nearestTime(),
+      duration: "",
+      strictMode: true
+    }));
+  }
+
+  function editChatDraft() {
+    taskInputRef.current?.focus();
   }
 
   async function markReminder(id, action) {
@@ -262,10 +315,45 @@ function App() {
             <span>{form.strictMode ? "Strict" : "Soft"}</span>
           </div>
 
+          <form onSubmit={parseChatReminder} className="chat-compose">
+            <label>
+              Chat AI
+              <textarea
+                value={chatPrompt}
+                onChange={(event) => setChatPrompt(event.target.value)}
+                placeholder="Besok jam 8 malam ingatkan aku belajar Laravel 30 menit"
+                rows={4}
+              />
+            </label>
+            <button className="primary" type="submit" disabled={chatParsing || !chatPrompt.trim()}>
+              {chatParsing ? "Parsing..." : "Parse with Groq"}
+            </button>
+            {chatResult ? (
+              <div className="chat-result">
+                <div>
+                  <strong>Draft AI</strong>
+                  <span>
+                    {chatResult.reminder?.task || "Task belum jelas"} · {chatResult.reminder?.date || "Tanggal ?"}{" "}
+                    {chatResult.reminder?.time || "Jam ?"}
+                  </span>
+                </div>
+                <div className="draft-actions">
+                  <button className="muted" type="button" onClick={editChatDraft}>
+                    Edit
+                  </button>
+                  <button className="danger-muted" type="button" onClick={clearChatDraft}>
+                    Clear
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </form>
+
           <form onSubmit={createReminder} className="form-grid">
             <label className="wide">
               Task
               <input
+                ref={taskInputRef}
                 value={form.task}
                 onChange={(event) => setFormValue("task", event.target.value)}
                 placeholder="Belajar Laravel 30 menit"
@@ -288,6 +376,16 @@ function App() {
                 value={form.time}
                 onChange={(event) => setFormValue("time", event.target.value)}
                 required
+              />
+            </label>
+            <label>
+              Duration
+              <input
+                type="number"
+                min="1"
+                value={form.duration}
+                onChange={(event) => setFormValue("duration", event.target.value)}
+                placeholder="30"
               />
             </label>
             <label className="wide">

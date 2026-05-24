@@ -55,6 +55,7 @@ http://localhost:5173
 ```
 
 The dashboard API uses `SUPABASE_SERVICE_ROLE_KEY` on the server side. Do not expose that key in React.
+Set `GROQ_API_KEY` on the dashboard API server to enable the AI chat parser in the create reminder panel.
 
 ## Discord Slash Command Test
 
@@ -156,6 +157,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 DISCORD_BOT_TOKEN=
 DISCORD_APPLICATION_ID=
 DISCORD_PUBLIC_KEY=
+GROQ_API_KEY=
+GROQ_MODEL=llama-3.1-8b-instant
 ```
 
 Never expose `DISCORD_BOT_TOKEN` in React.

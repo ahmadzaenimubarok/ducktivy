@@ -74,6 +74,8 @@ DASHBOARD_API_PORT=8787
 DASHBOARD_ORIGIN=https://DOMAIN_KAMU
 APP_TIME_ZONE=Asia/Jakarta
 APP_TIME_ZONE_OFFSET_MINUTES=420
+GROQ_API_KEY=YOUR_GROQ_API_KEY
+GROQ_MODEL=llama-3.1-8b-instant
 ```
 
 Catatan penting:
@@ -83,6 +85,7 @@ Catatan penting:
 - `VITE_DASHBOARD_API_URL` harus mengarah ke domain dashboard, contoh `https://bot.domain.com`.
 - Isi `DISCORD_GUILD_ID` saat testing agar slash command cepat muncul.
 - `APP_TIME_ZONE_OFFSET_MINUTES=420` berarti UTC+7 atau WIB. Ini mencegah gap 7 jam saat VPS memakai timezone UTC.
+- `GROQ_API_KEY` hanya dipakai oleh Dashboard API di server untuk parsing chat menjadi draft reminder.
 
 ## 5. Setup Database Supabase
 
